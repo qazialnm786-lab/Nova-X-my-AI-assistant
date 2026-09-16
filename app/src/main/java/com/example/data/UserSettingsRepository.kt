@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 data class UserSettings(
     val assistantName: String = "NOVA-X",
     val languageMode: String = "Auto-Detect", // "Auto-Detect", "English", "Hindi", "Hinglish"
-    val voicePitch: Float = 1.12f, // Natural young female pitch
+    val voicePitch: Float = 1.18f, // Natural young female pitch
     val voiceSpeed: Float = 1.0f,
     val autoSpeakEnabled: Boolean = true,
     val memoryEnabled: Boolean = true,
@@ -28,7 +28,7 @@ class UserSettingsRepository(context: Context) {
         return UserSettings(
             assistantName = prefs.getString("assistant_name", "NOVA-X") ?: "NOVA-X",
             languageMode = prefs.getString("language_mode", "Auto-Detect") ?: "Auto-Detect",
-            voicePitch = prefs.getFloat("voice_pitch", 1.12f),
+            voicePitch = prefs.getFloat("voice_pitch", 1.18f),
             voiceSpeed = prefs.getFloat("voice_speed", 1.0f),
             autoSpeakEnabled = prefs.getBoolean("auto_speak", true),
             memoryEnabled = prefs.getBoolean("memory_enabled", true),

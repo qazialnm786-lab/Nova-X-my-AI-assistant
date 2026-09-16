@@ -241,24 +241,24 @@ fun SettingsDialog(
                     modifier = Modifier.testTag("voice_speed_slider")
                 )
 
-                // Voice Pitch Slider (Natural young female tone)
+                // Voice Pitch Slider (Exclusively natural young female tone)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Voice Pitch (Female Tone)", color = NovaTextSecondary, fontSize = 13.sp)
+                    Text("Female Voice Timbre (Pitch)", color = NovaTextSecondary, fontSize = 13.sp)
                     Text(
-                        "${(settings.voicePitch * 100).roundToInt() / 100f}x",
+                        "${(settings.voicePitch * 100).roundToInt() / 100f}x (Young Female)",
                         color = NovaViolet,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
                 Slider(
-                    value = settings.voicePitch,
+                    value = settings.voicePitch.coerceIn(1.15f, 1.35f),
                     onValueChange = onUpdatePitch,
-                    valueRange = 0.8f..1.4f,
-                    steps = 11,
+                    valueRange = 1.15f..1.35f,
+                    steps = 8,
                     colors = SliderDefaults.colors(
                         thumbColor = NovaViolet,
                         activeTrackColor = NovaViolet,

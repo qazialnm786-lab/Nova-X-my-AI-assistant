@@ -39,6 +39,7 @@ class ExampleUnitTest {
         assertEquals(true, settings.autoSpeakEnabled)
         assertEquals(true, settings.memoryEnabled)
         assertEquals("Auto-Detect", settings.languageMode)
+        assertEquals(1.18f, settings.voicePitch)
     }
 }
 

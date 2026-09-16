@@ -41,10 +41,32 @@ class VoiceManager(
     private val _availableFemaleVoices = MutableStateFlow<List<Voice>>(emptyList())
     val availableFemaleVoices: StateFlow<List<Voice>> = _availableFemaleVoices.asStateFlow()
 
-    // Configurable voice parameters
-    var pitch: Float = 1.12f // youthful, warm female tone
+    // Configurable voice parameters - strictly female defaults
+    var pitch: Float = 1.18f // Warm, youthful, natural female voice pitch
     var speechRate: Float = 1.0f
     var preferredVoiceName: String = ""
+
+    // Session cache: keeps the exact same female voice consistently throughout the conversation
+    private val lockedFemaleVoicesByLocale = mutableMapOf<String, Voice>()
+
+    companion object {
+        // Voice tokens known to be male in Google TTS & Android TTS engines
+        private val EXCLUDED_MALE_TOKENS = listOf(
+            "male", "man", "boy", "guy", "masculine", "masculino",
+            "-sfb", "-sfd", "-tpa", "-iom", "-hia", "-hif", "-cfa", "-cmd"
+        )
+
+        // Tokens indicating authentic female voice quality
+        private val FEMALE_TOKENS = listOf(
+            "female", "woman", "girl", "femme", "femenino",
+            // Google US English female voices
+            "-sfg", "-tpf", "-iob", "-iol", "-tpc",
+            // Google Indian English (Hinglish) female voices
+            "-enc", "-end", "-ena", "-cxx",
+            // Google Hindi female voices
+            "-hie", "-hid", "-cfc", "-hic"
+        )
+    }
 
     init {
         try {
@@ -79,13 +101,7 @@ class VoiceManager(
             // Filter available female voices across all installed languages
             try {
                 val voices = textToSpeech?.voices?.filter { voice ->
-                    val name = voice.name.lowercase()
-                    name.contains("female") ||
-                            name.contains("-sfg") ||
-                            name.contains("-tpf") ||
-                            name.contains("-hie") ||
-                            name.contains("woman") ||
-                            name.contains("girl")
+                    isVoiceFemale(voice)
                 } ?: emptyList()
                 _availableFemaleVoices.value = voices
             } catch (e: Exception) {
@@ -98,8 +114,22 @@ class VoiceManager(
     }
 
     /**
+     * Strictly verifies whether a voice candidate is female and not male.
+     */
+    private fun isVoiceFemale(voice: Voice): Boolean {
+        val name = voice.name.lowercase()
+        // Strictly reject any male voice
+        if (EXCLUDED_MALE_TOKENS.any { name.contains(it) }) {
+            return false
+        }
+        // Match recognized female voice identifiers
+        return FEMALE_TOKENS.any { name.contains(it) }
+    }
+
+    /**
      * Speaks text using a natural female voice.
      * Automatically configures language (Hindi vs English/Hinglish).
+     * Enforces female voice only.
      */
     fun speak(text: String, detectedLang: String = "English") {
         if (!isTtsInitialized || textToSpeech == null) {
@@ -113,7 +143,10 @@ class VoiceManager(
         if (cleanText.isBlank()) return
 
         val tts = textToSpeech ?: return
-        tts.setPitch(pitch)
+
+        // Always guarantee pitch is in the warm, youthful female frequency band (at least 1.15f)
+        val guaranteedFemalePitch = pitch.coerceIn(1.15f, 1.35f)
+        tts.setPitch(guaranteedFemalePitch)
         tts.setSpeechRate(speechRate)
 
         // Select best language and female voice
@@ -126,12 +159,11 @@ class VoiceManager(
         try {
             val langResult = tts.setLanguage(targetLocale)
             if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-                // Fallback to default locale
                 tts.language = Locale.getDefault()
             }
 
-            // Pick female voice if available
-            selectBestFemaleVoice(tts, targetLocale)
+            // Exclusively pick and lock the female voice
+            selectConsistentFemaleVoice(tts, targetLocale)
         } catch (e: Exception) {
             Log.w(TAG, "Failed setting language for TTS", e)
         }
@@ -142,31 +174,54 @@ class VoiceManager(
         tts.speak(cleanText, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
     }
 
-    private fun selectBestFemaleVoice(tts: TextToSpeech, targetLocale: Locale) {
+    /**
+     * Selects and locks a female voice. Never switches or falls back to a male voice.
+     */
+    private fun selectConsistentFemaleVoice(tts: TextToSpeech, targetLocale: Locale) {
+        val localeKey = "${targetLocale.language}_${targetLocale.country}"
+
+        // 1. Maintain consistent voice across entire conversation
+        val lockedVoice = lockedFemaleVoicesByLocale[localeKey]
+        if (lockedVoice != null && tts.voices?.contains(lockedVoice) == true) {
+            tts.voice = lockedVoice
+            return
+        }
+
         try {
+            val voices = tts.voices ?: return
+            val languageVoices = voices.filter { it.locale.language == targetLocale.language }
+
+            // User preference if specified and verified female
             if (preferredVoiceName.isNotBlank()) {
-                val match = tts.voices?.firstOrNull { it.name == preferredVoiceName }
-                if (match != null) {
-                    tts.voice = match
+                val userMatch = languageVoices.firstOrNull { it.name == preferredVoiceName && isVoiceFemale(it) }
+                if (userMatch != null) {
+                    tts.voice = userMatch
+                    lockedFemaleVoicesByLocale[localeKey] = userMatch
                     return
                 }
             }
 
-            val voices = tts.voices ?: return
-            val candidate = voices.firstOrNull { v ->
-                v.locale.language == targetLocale.language &&
-                        (v.name.lowercase().contains("female") ||
-                                v.name.lowercase().contains("-sfg") ||
-                                v.name.lowercase().contains("-hie"))
-            } ?: voices.firstOrNull { v ->
-                v.locale.language == targetLocale.language
-            }
+            // Prioritize high-quality female voices
+            val femaleCandidates = languageVoices.filter { isVoiceFemale(it) }
 
-            if (candidate != null) {
-                tts.voice = candidate
+            val chosenVoice = femaleCandidates.firstOrNull { voice ->
+                // Prefer high-quality, local installed voices
+                !voice.isNetworkConnectionRequired && voice.quality >= Voice.QUALITY_HIGH
+            } ?: femaleCandidates.firstOrNull { voice ->
+                voice.quality >= Voice.QUALITY_HIGH
+            } ?: femaleCandidates.firstOrNull()
+              ?: languageVoices.firstOrNull { voice ->
+                  // Safe fallback: any voice not having male tokens
+                  val lowerName = voice.name.lowercase()
+                  !EXCLUDED_MALE_TOKENS.any { lowerName.contains(it) }
+              }
+
+            if (chosenVoice != null) {
+                tts.voice = chosenVoice
+                lockedFemaleVoicesByLocale[localeKey] = chosenVoice
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Voice selection unsupported: ${e.message}")
+            Log.w(TAG, "Voice selection error: ${e.message}")
         }
     }
 
