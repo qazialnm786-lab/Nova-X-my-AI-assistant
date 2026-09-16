@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">NOVA-X</string>
+    <string name="assistant_tagline">Next-Gen Voice AI Assistant</string>
+    <string name="status_online">Online • Ready</string>
+    <string name="status_listening">Listening to you…</string>
+    <string name="status_thinking">NOVA-X is thinking…</string>
+    <string name="status_speaking">NOVA-X is speaking…</string>
+    <string name="input_placeholder">Ask NOVA-X anything or tap mic…</string>
+    <string name="action_send">Send message</string>
+    <string name="action_voice">Voice input</string>
+    <string name="action_stop">Stop speaking</string>
+    <string name="action_new_chat">New Chat</string>
+    <string name="action_settings">Settings</string>
+</resources>

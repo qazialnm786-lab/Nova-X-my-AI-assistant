@@ -1,0 +1,6 @@
+{
+  "name": "NOVA-X",
+  "description": "Personal AI Assistant with natural real-time voice, conversational memory, multilingual support (Hindi, English, Hinglish), and futuristic AI design.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
